@@ -1,9 +1,7 @@
-const bcrypt = require('bcrypt');
+const decryptData = require("./helpers/crypto");
 
-const password = 'admin123'; // Replace with your actual password
-const saltRounds = 10;
-
-bcrypt.hash(password, saltRounds, (err, hash) => {
-  if (err) throw err;
-  console.log('Hashed password:', hash);
-});
+const data =
+  "U2FsdGVkX1/99QoVgBAJhBSjILDXruvVYH8N1wrKmPCmwD5gJ5wYA9Ht9pyMxhq/LZvImiCpesTN5ir6HMHSeCu/e/hu/AA/hJz5hIOtQ1FQS9hVxKDD6x3o0zQRUZxRf9FYHkZZBSg6XDcxuDGv+chwp6X1ODPEVCtFZGLG0UgBP6hZ6nMv+nLC3JcYyJoojc/5iyVD00hAjkNm5DsQcw==";
+const secretKey = "thirsty_cat";
+const deData = decryptData(data, secretKey);
+console.log(deData);

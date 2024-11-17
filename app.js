@@ -29,6 +29,7 @@ app.use(
     origin: [
       "http://localhost:3030",
       "http://localhost:3031",
+      "http://localhost:60524",
       "https://membersverify.com/",
       "https://membersverify.com",
     ],

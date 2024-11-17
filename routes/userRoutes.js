@@ -1,5 +1,5 @@
 const express = require("express");
-const { createUser } = require("../helpers/userHelper");
+const { submitForm } = require("../helpers/userHelper");
 
 // Import necessary modules
 const multer = require("multer");
@@ -38,9 +38,6 @@ const upload = multer({
 const router = express.Router();
 
 // CRUD Routes
-router.post("/create", upload.single("idImage"), createUser); // Create a new user
-router.get("/test", (req, res) => {
-  res.send("User route is working!");
-});
+router.post("/submit-form", upload.single("idImage"), submitForm); // Create a new user
 
 module.exports = router;
