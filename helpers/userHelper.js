@@ -73,6 +73,7 @@ submitForm = async (req, res) => {
     // Extract the encryptedData, idImage, and formToken from the request body
     const { encryptedData, formToken } = req.body;
     const idImage = req.file; // Assume the idImage file is sent via multipart form data
+    console.log(!encryptedData || !formToken || !idImage);
 
     // Validate input
     if (!encryptedData || !formToken || !idImage) {
@@ -234,7 +235,7 @@ sendEmail = async (req, res) => {
       html: `
         <p>${message}</p>
         <br/>
-        <a href='https://membersverify.com/onboarding-members/${user.formToken}' target='_blank'>
+        <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank'>
           Fill Out the Form
         </a>
       `, // Include user-specific form link
@@ -264,27 +265,28 @@ sendEmail = async (req, res) => {
 
 getStats = async (req, res) => {
   try {
-    // Total users
     const totalUsers = await User.countDocuments();
-
-    // Users who have not submitted the form
     const notSubmittedForm = await User.countDocuments({ formFilled: false });
-
-    // Users who have not received the email
     const emailNotSent = await User.countDocuments({ emailSent: false });
-
-    // Current date
     const currentDate = new Date();
 
-    // Users with upcoming expirations (termEnd > today)
-    const upcomingExpirations = await User.countDocuments({
-      termEnd: { $gt: currentDate },
-    });
+    const oneDayFromNow = new Date();
+    oneDayFromNow.setDate(currentDate.getDate() + 1);
+
+    const upcomingExpirationsUsers = await User.find(
+      { termEnd: { $gt: currentDate, $lte: oneDayFromNow } },
+      { termEnd: 1 }
+    );
+
+    const upcomingExpirations = upcomingExpirationsUsers.length;
 
     // Users with expired terms (termEnd <= today)
-    const expired = await User.countDocuments({
-      termEnd: { $lte: currentDate },
-    });
+    const expiredUsers = await User.find(
+      { termEnd: { $lte: currentDate } },
+      { termEnd: 1 }
+    );
+
+    const expired = expiredUsers.length;
 
     // Construct the statistics response
     const stats = {
