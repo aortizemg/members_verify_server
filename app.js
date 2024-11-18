@@ -67,7 +67,7 @@ app.post("/admin/login", async (req, res) => {
       .json({ status: false, message: "Invalid credentials" });
   }
   const token = generateToken(admin);
-  res.status(200).json({ status: true, token, message: " login successful" });
+  res.status(200).json({ status: true, token, message: "login successful" });
 });
 
 const verifyToken = (req, res, next) => {
