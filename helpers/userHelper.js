@@ -234,7 +234,7 @@ sendEmail = async (req, res) => {
       html: `
         <p>${message}</p>
         <br/>
-        <a href='http://localhost:3030/onboarding-members/${user.formToken}' target='_blank'>
+        <a href='https://membersverify.com/onboarding-members/${user.formToken}' target='_blank'>
           Fill Out the Form
         </a>
       `, // Include user-specific form link

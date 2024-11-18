@@ -32,6 +32,8 @@ app.use(
       "http://localhost:60524",
       "https://membersverify.com/",
       "https://membersverify.com",
+      "https://orca-app-mv9st.ondigitalocean.app",
+      "https://orca-app-mv9st.ondigitalocean.app/",
     ],
   })
 );
@@ -65,7 +67,7 @@ app.post("/admin/login", async (req, res) => {
       .json({ status: false, message: "Invalid credentials" });
   }
   const token = generateToken(admin);
-  res.status(200).json({ status: true, token, message: "login successfull" });
+  res.status(200).json({ status: true, token, message: " login successful" });
 });
 
 const verifyToken = (req, res, next) => {

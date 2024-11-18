@@ -94,7 +94,7 @@ const userSchema = new mongoose.Schema(
     primaryEmail: {
       type: String,
       trim: true,
-      unique: true, // Ensures each email is unique
+
       sparse: true, // Allows multiple `null` values
     },
     primaryPhone: {
