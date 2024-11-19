@@ -208,12 +208,11 @@ sendEmail = async (req, res) => {
     const { toEmail, subject, message } = req.body;
     const { id } = req.params; // Unique ID of the user
 
-    // Validate input fields
-    if (!toEmail || !subject || !message) {
+    // Validate the email address
+    if (!toEmail) {
       return res.status(400).json({
         status: false,
-        message:
-          "Please provide all required fields (toEmail, subject, message).",
+        message: "Please provide the recipient's email address (toEmail).",
       });
     }
 
@@ -227,22 +226,54 @@ sendEmail = async (req, res) => {
       });
     }
 
-    // Prepare the email content
-    const msg = {
-      from: '"Members verify" <Boi@membersverify.com>',
-      to: toEmail,
-      subject: subject,
-      html: `
-        <p>${message}</p>
-        <br/>
-        <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank'>
-          Fill Out the Form
-        </a>
-      `, // Include user-specific form link
-    };
+    // Determine the email content
+    const emailBody =
+      subject && message
+        ? {
+            // Use custom subject and message if provided
+            from: '"Members Verify" <boi@membersverify.com>',
+            to: toEmail,
+            subject: subject,
+            html: `<p>${message}</p>`,
+          }
+        : {
+            // Use default template if subject and message are not provided
+            from: '"Members Verify" <boi@membersverify.com>',
+            to: toEmail,
+            subject: "Members Verify - BOI Verification",
+            html: `
+            <p>Hello,</p>
+            <p>We hope this email finds you well. We're writing to inform you about the Corporate Transparency Act (CTA), a new federal law that will impact your HOA.</p>
+
+            <h2>Understanding the Corporate Transparency Act (CTA)</h2>
+            <p>The CTA is a new federal law requiring many Homeowners Associations (HOAs) to file Beneficial Ownership Information (BOI) with the Financial Crimes Enforcement Network (FinCEN). Failure to comply by January 1, 2025, could result in daily fines of $500.</p>
+
+            <h3>Who Needs to Be Reported?</h3>
+            <p>For HOAs, beneficial owners include:</p>
+            <ul>
+              <li>All board members</li>
+              <li>Individuals owning more than 25% of the units in the association</li>
+            </ul>
+
+            <h3>What to Expect:</h3>
+            <ol>
+              <li>Receive this email from Members Verify</li>
+              <li>Click the link below in this email</li>
+              <li>Upload a photo ID (Driver's License or Passport)</li>
+              <li>Certify the information is correct and submit</li>
+              <li>Someone from Members Verify will finish the filing process and submit.</li>
+            </ol>
+
+            <p>If you have any questions or need to make any modifications, please email <a href="mailto:boi@membersverify.com">boi@membersverify.com</a>.</p>
+            <br/>
+            <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank' style="display:inline-block; padding:10px 20px; background-color:#007BFF; color:white; text-decoration:none; border-radius:5px;">
+              Fill Out the Form
+            </a>
+          `,
+          };
 
     // Send email
-    await transporter.sendMail(msg);
+    await transporter.sendMail(emailBody);
 
     // Update emailSent field in the database
     user.emailSent = true;
