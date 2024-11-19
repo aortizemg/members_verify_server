@@ -269,6 +269,10 @@ sendEmail = async (req, res) => {
             <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank' style="display:inline-block; padding:10px 20px; background-color:#007BFF; color:white; text-decoration:none; border-radius:5px;">
               Fill Out the Form
             </a>
+             <br/>
+              <br/>
+              <br/>
+              <br/>
           `,
           };
 
