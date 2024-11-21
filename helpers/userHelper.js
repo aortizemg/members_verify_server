@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
     rejectUnauthorized: false, // Optional: Disable certificate validation (useful for debugging)
   },
 });
-listUpload = async (req, res) => {
+const listUpload = async (req, res) => {
   try {
     const data = req.body;
     const mappedData = data.map((entry) => ({
@@ -68,7 +68,7 @@ function convertExcelDate(excelDate) {
 }
 
 // Create a new user
-submitForm = async (req, res) => {
+const submitForm = async (req, res) => {
   try {
     // Extract the encryptedData, idImage, and formToken from the request body
     const { encryptedData, formToken } = req.body;
@@ -137,7 +137,7 @@ submitForm = async (req, res) => {
   }
 };
 
-getAllUsers = async (req, res) => {
+const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 0; // Default to page 0 if not provided
     const limit = 20; // Set a default limit of 20
@@ -169,7 +169,7 @@ getAllUsers = async (req, res) => {
 };
 
 // Read a single user by ID
-getUserById = async (req, res) => {
+const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -180,7 +180,7 @@ getUserById = async (req, res) => {
 };
 
 // Update a user by ID
-updateUserById = async (req, res) => {
+const updateUserById = async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -193,7 +193,7 @@ updateUserById = async (req, res) => {
 };
 
 // Delete a user by ID
-deleteUserById = async (req, res) => {
+const deleteUserById = async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -203,7 +203,7 @@ deleteUserById = async (req, res) => {
   }
 };
 
-sendEmail = async (req, res) => {
+const sendEmail = async (req, res) => {
   try {
     const { toEmail, subject, message } = req.body;
     const { id } = req.params; // Unique ID of the user
@@ -212,13 +212,12 @@ sendEmail = async (req, res) => {
     if (!toEmail) {
       return res.status(400).json({
         status: false,
-        message: "Please provide the recipient's email address (toEmail).",
+        message: "Recipient's email address (toEmail) is required.",
       });
     }
 
     // Find the user by uniqueId
     const user = await User.findOne({ uniqueId: id });
-
     if (!user) {
       return res.status(404).json({
         status: false,
@@ -226,70 +225,64 @@ sendEmail = async (req, res) => {
       });
     }
 
-    // Determine the email content
-    const emailBody =
-      subject && message
-        ? {
-            // Use custom subject and message if provided
-            from: '"Members Verify" <boi@membersverify.com>',
-            to: toEmail,
-            subject: subject,
-            html: `<p>${message}</p>`,
-          }
-        : {
-            // Use default template if subject and message are not provided
-            from: '"Members Verify" <boi@membersverify.com>',
-            to: toEmail,
-            subject: "Members Verify - BOI Verification",
-            html: `
-            <p>Hello,</p>
-            <p>We hope this email finds you well. We're writing to inform you about the Corporate Transparency Act (CTA), a new federal law that will impact your HOA.</p>
+    // Determine the email content based on provided or default values
+    const emailBody = {
+      from: '"Members Verify" <boi@membersverify.com>',
+      to: toEmail,
+      subject: subject || "Members Verify - BOI Verification",
+      html: message
+        ? `<p>${message}</p>` // Custom message if provided
+        : `
+          <p>Hello,</p>
+          <p>We hope this email finds you well. We're writing to inform you about the Corporate Transparency Act (CTA), a new federal law that will impact your HOA.</p>
 
-            <h2>Understanding the Corporate Transparency Act (CTA)</h2>
-            <p>The CTA is a new federal law requiring many Homeowners Associations (HOAs) to file Beneficial Ownership Information (BOI) with the Financial Crimes Enforcement Network (FinCEN). Failure to comply by January 1, 2025, could result in daily fines of $500.</p>
+          <h2>Understanding the Corporate Transparency Act (CTA)</h2>
+          <p>The CTA is a new federal law requiring many Homeowners Associations (HOAs) to file Beneficial Ownership Information (BOI) with the Financial Crimes Enforcement Network (FinCEN). Failure to comply by January 1, 2025, could result in daily fines of $500.</p>
 
-            <h3>Who Needs to Be Reported?</h3>
-            <p>For HOAs, beneficial owners include:</p>
-            <ul>
-              <li>All board members</li>
-              <li>Individuals owning more than 25% of the units in the association</li>
-            </ul>
+          <h3>Who Needs to Be Reported?</h3>
+          <p>For HOAs, beneficial owners include:</p>
+          <ul>
+            <li>All board members</li>
+            <li>Individuals owning more than 25% of the units in the association</li>
+          </ul>
 
-            <h3>What to Expect:</h3>
-            <ol>
-              <li>Receive this email from Members Verify</li>
-              <li>Click the link below in this email</li>
-              <li>Upload a photo ID (Driver's License or Passport)</li>
-              <li>Certify the information is correct and submit</li>
-              <li>Someone from Members Verify will finish the filing process and submit.</li>
-            </ol>
+          <h3>What to Expect:</h3>
+          <ol>
+            <li>Receive this email from Members Verify</li>
+            <li>Click the link below in this email</li>
+            <li>Upload a photo ID (Driver's License or Passport)</li>
+            <li>Certify the information is correct and submit</li>
+            <li>Someone from Members Verify will finish the filing process and submit.</li>
+          </ol>
 
-            <p>If you have any questions or need to make any modifications, please email <a href="mailto:boi@membersverify.com">boi@membersverify.com</a>.</p>
-            <br/>
-            <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank' style="display:inline-block; padding:10px 20px; background-color:#007BFF; color:white; text-decoration:none; border-radius:5px;">
-              Fill Out the Form
-            </a>
-             <br/>
-              <br/>
-              <br/>
-              <br/>
-          `,
-          };
+          <p>If you have any questions or need to make any modifications, please email <a href="mailto:boi@membersverify.com">boi@membersverify.com</a>.</p>
+          <br/>
+          <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank' style="display:inline-block; padding:10px 20px; background-color:#007BFF; color:white; text-decoration:none; border-radius:5px;">
+            Fill Out the Form
+          </a>
+          <br/>
+          <br/>
+          <br/>
+          <br/>
+        `,
+    };
 
-    // Send email
+    // Send the email
     await transporter.sendMail(emailBody);
 
-    // Update emailSent field in the database
+    // Update the user's emailSent status in the database
     user.emailSent = true;
     await user.save();
 
+    // Respond with success
     res.status(200).json({
       status: true,
-      message: "Email sent successfully and status updated!",
+      message: "Email sent successfully, and user status updated!",
     });
   } catch (error) {
     console.error("Error sending email:", error.message);
 
+    // Respond with error
     res.status(500).json({
       status: false,
       message: "Failed to send email.",
@@ -298,7 +291,7 @@ sendEmail = async (req, res) => {
   }
 };
 
-getStats = async (req, res) => {
+const getStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const notSubmittedForm = await User.countDocuments({ formFilled: false });
