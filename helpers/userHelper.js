@@ -1,6 +1,9 @@
 const User = require("../models/users"); // Adjust the path as necessary
 const nodemailer = require("nodemailer");
 const decryptData = require("./crypto");
+const ExcelJS = require("exceljs");
+const path = require("path");
+const fs = require("fs");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.office365.com", // Outlook's SMTP server
@@ -186,7 +189,7 @@ const updateUserById = async (req, res) => {
       new: true,
     });
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
+    res.json({ message: "updated successfully", user });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -257,7 +260,7 @@ const sendEmail = async (req, res) => {
 
           <p>If you have any questions or need to make any modifications, please email <a href="mailto:boi@membersverify.com">boi@membersverify.com</a>.</p>
           <br/>
-          <a href='http://membersverify.com/onboarding-members/${user.formToken}' target='_blank' style="display:inline-block; padding:10px 20px; background-color:#007BFF; color:white; text-decoration:none; border-radius:5px;">
+          <a href='https://membersverify.com/onboarding-members/${user.formToken}' target='_blank' style="display:inline-block; padding:10px 20px; background-color:#007BFF; color:white; text-decoration:none; border-radius:5px;">
             Fill Out the Form
           </a>
           <br/>
@@ -335,6 +338,122 @@ const getStats = async (req, res) => {
   }
 };
 
+const downloadExcel = async (req, res) => {
+  try {
+    // Fetch users from the database
+    const users = await User.find();
+
+    if (!users.length) {
+      return res.status(404).send("No users found");
+    }
+
+    // Create a new Excel workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Users");
+
+    // Define columns for the Excel sheet
+    worksheet.columns = [
+      { header: "Assoc Code", key: "assocCode", width: 15 },
+      { header: "Association", key: "association", width: 20 },
+      {
+        header: "Association Live Date",
+        key: "associationLiveDate",
+        width: 20,
+      },
+      { header: "Association Manager", key: "associationManager", width: 20 },
+      { header: "Board Member", key: "boardMember", width: 15 },
+      { header: "Member Role", key: "memberRole", width: 15 },
+      { header: "Member Type", key: "memberType", width: 15 },
+      { header: "DOB", key: "dob", width: 12 },
+      { header: "Term Start", key: "termStart", width: 15 },
+      { header: "Term End", key: "termEnd", width: 15 },
+      { header: "First Name", key: "firstName", width: 15 },
+      { header: "Last Name", key: "lastName", width: 15 },
+      { header: "Identification", key: "identification", width: 15 },
+      { header: "Home Address", key: "homeAddress", width: 20 },
+      { header: "ID Image", key: "idImage", width: 20 },
+    ];
+
+    // Add rows for each user
+    for (const user of users) {
+      const row = worksheet.addRow({
+        assocCode: user.assocCode,
+        association: user.association,
+        associationLiveDate: user.associationLiveDate
+          ? user.associationLiveDate.toISOString().split("T")[0]
+          : "",
+        associationManager: user.associationManager,
+        boardMember: user.boardMember,
+        memberRole: user.memberRole,
+        memberType: user.memberType,
+        dob: user.dob ? user.dob.toISOString().split("T")[0] : "",
+        termStart: user.termStart
+          ? user.termStart.toISOString().split("T")[0]
+          : "",
+        termEnd: user.termEnd ? user.termEnd.toISOString().split("T")[0] : "",
+        firstName: user.firstName,
+        lastName: user.lastName,
+        identification: user.identification,
+        homeAddress: user.homeAddress,
+        idImage: "", // Placeholder for image (not embedding in this case)
+      });
+
+      // If an image exists, read and embed it into the Excel
+      // Assuming `user.idImage` contains a relative path like 'uploads/idImage-1732325005894-476192109.jpg'
+      const uploadsDir = path.resolve(__dirname, ".."); // This gives the correct 'uploads' directory in the root of the project
+
+      // Construct the full path to the image
+      const imagePath = path.join(
+        uploadsDir,
+        user?.idImage?.replace(/\\/g, "/")
+      ); // Replace backslashes for consistency
+
+      console.log("Trying to read image from:", imagePath);
+
+      // Check if the file exists at the constructed path
+      if (fs.existsSync(imagePath)) {
+        try {
+          // Read the image file
+          const imageData = await fs.readFileSync(imagePath);
+          console.log(imageData);
+
+          // Convert to base64
+          const imageBase64 = imageData.toString("base64");
+
+          // Add the image to the workbook
+          const imageId = workbook.addImage({
+            base64: imageBase64,
+            extension: "jpeg", // Use the correct extension based on your image type
+          });
+
+          worksheet.addImage(imageId, {
+            tl: { col: 13, row: row.number - 1 }, // Position (13th column, same row)
+            ext: { width: 100, height: 100 }, // Image size
+          });
+        } catch (error) {
+          console.error("Error reading image file:", error);
+        }
+      } else {
+        console.error("Image file not found at path:", imagePath);
+      }
+    }
+
+    // Write the Excel file to a buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    // Set the response headers and send the file
+    res.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("Error generating Excel file:", error);
+    res.status(500).send("Error generating Excel file");
+  }
+};
+
 module.exports = {
   submitForm,
   getAllUsers,
@@ -344,4 +463,5 @@ module.exports = {
   listUpload,
   sendEmail,
   getStats,
+  downloadExcel,
 };
