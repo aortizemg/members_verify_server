@@ -1,9 +1,30 @@
 const User = require("../models/users"); // Adjust the path as necessary
 const nodemailer = require("nodemailer");
-const decryptData = require("./crypto");
 const ExcelJS = require("exceljs");
 const path = require("path");
 const fs = require("fs");
+const { uploadToS3 } = require("../routes/userRoutes");
+const { decryptData } = require("./crypto");
+const https = require("https");
+// Helper function to fetch image from URL and convert to base64
+const fetchImageAsBase64 = (imageUrl) => {
+  return new Promise((resolve, reject) => {
+    https.get(imageUrl, (response) => {
+      const chunks = [];
+      response.on("data", (chunk) => {
+        chunks.push(chunk);
+      });
+      response.on("end", () => {
+        const imageBuffer = Buffer.concat(chunks);
+        const imageBase64 = imageBuffer.toString("base64");
+        resolve(imageBase64);
+      });
+      response.on("error", (error) => {
+        reject("Error fetching image: " + error.message);
+      });
+    });
+  });
+};
 
 const transporter = nodemailer.createTransport({
   host: "smtp.office365.com", // Outlook's SMTP server
@@ -73,13 +94,12 @@ function convertExcelDate(excelDate) {
 // Create a new user
 const submitForm = async (req, res) => {
   try {
-    // Extract the encryptedData, idImage, and formToken from the request body
     const { encryptedData, formToken } = req.body;
-    const idImage = req.file; // Assume the idImage file is sent via multipart form data
-    console.log(!encryptedData || !formToken || !idImage);
+
+    console.log(encryptedData, formToken);
 
     // Validate input
-    if (!encryptedData || !formToken || !idImage) {
+    if (!encryptedData || !formToken) {
       return res.status(400).json({
         message: "Encrypted data, form token, and idImage are required.",
       });
@@ -95,11 +115,18 @@ const submitForm = async (req, res) => {
     }
 
     // Destructure decrypted data fields
-    const { firstName, lastName, homeAddress, identification, dob } =
+    const { firstName, lastName, homeAddress, identification, dob, idImage } =
       decryptedData;
 
     // Ensure all required fields are present
-    if (!firstName || !lastName || !homeAddress || !identification || !dob) {
+    if (
+      !firstName ||
+      !lastName ||
+      !homeAddress ||
+      !identification ||
+      !dob ||
+      !idImage
+    ) {
       return res.status(400).json({ message: "All fields are required." });
     }
 
@@ -125,13 +152,13 @@ const submitForm = async (req, res) => {
     user.homeAddress = homeAddress;
     user.identification = identification;
     user.dob = dob;
-    user.idImage = idImage.path; // Save the file path
+    user.idImage = idImage; // Save the file path
     user.formFilled = true; // Toggle formFilled to true
     user.verified = true;
     await user.save();
 
     // Send success response
-    res.status(201).json({ message: "Form submitted successfully", user });
+    res.status(201).json({ message: "Form submitted successfully" });
   } catch (error) {
     console.error(error); // Log the error for debugging purposes
     res
@@ -144,15 +171,11 @@ const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 0; // Default to page 0 if not provided
     const limit = 20; // Set a default limit of 20
-    const assocCode = req.query.assocCode || null; // Get assocCode from the query, default to null
-
-    // Calculate the number of items to skip based on the page
+    const assocCode = req.query.assocCode || null;
     const skip = page * limit;
 
     // Build the query object
-    const query = assocCode ? { assocCode } : {}; // If assocCode is provided, filter by it
-
-    // Fetch users based on the query with skip and limit for pagination
+    const query = assocCode ? { assocCode } : {};
     const users = await User.find(query).skip(skip).limit(limit);
 
     // Get the total number of users for pagination info
@@ -189,7 +212,7 @@ const updateUserById = async (req, res) => {
       new: true,
     });
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ message: "updated successfully", user });
+    res.json({ message: "updated successfully" });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -371,7 +394,7 @@ const downloadExcel = async (req, res) => {
       { header: "Last Name", key: "lastName", width: 15 },
       { header: "Identification", key: "identification", width: 15 },
       { header: "Home Address", key: "homeAddress", width: 20 },
-      { header: "ID Image", key: "idImage", width: 20 },
+      { header: "ID Image", key: "idImage", width: 30 },
     ];
 
     // Add rows for each user
@@ -398,56 +421,44 @@ const downloadExcel = async (req, res) => {
         idImage: "", // Placeholder for image (not embedding in this case)
       });
 
-      // If an image exists, read and embed it into the Excel
-      // Assuming `user.idImage` contains a relative path like 'uploads/idImage-1732325005894-476192109.jpg'
-      const uploadsDir = path.resolve(__dirname, ".."); // This gives the correct 'uploads' directory in the root of the project
-
-      // Construct the full path to the image
-      const imagePath = path.join(
-        uploadsDir,
-        user?.idImage?.replace(/\\/g, "/")
-      ); // Replace backslashes for consistency
-
-      console.log("Trying to read image from:", imagePath);
-
-      // Check if the file exists at the constructed path
-      if (fs.existsSync(imagePath)) {
+      // If an image exists (URL from S3), fetch it and embed in the Excel
+      if (user?.idImage) {
         try {
-          // Read the image file
-          const imageData = await fs.readFileSync(imagePath);
-          console.log(imageData);
+          const imageBase64 = await fetchImageAsBase64(user.idImage);
 
-          // Convert to base64
-          const imageBase64 = imageData.toString("base64");
+          if (imageBase64) {
+            // Dynamically detect image extension (png, jpg, jpeg)
+            const ext = user.idImage.split(".").pop(); // Get the file extension
+            const imageId = workbook.addImage({
+              base64: imageBase64,
+              extension: ext, // Use the correct extension
+            });
 
-          // Add the image to the workbook
-          const imageId = workbook.addImage({
-            base64: imageBase64,
-            extension: "jpeg", // Use the correct extension based on your image type
-          });
-
-          worksheet.addImage(imageId, {
-            tl: { col: 13, row: row.number - 1 }, // Position (13th column, same row)
-            ext: { width: 100, height: 100 }, // Image size
-          });
+            worksheet.addImage(imageId, {
+              tl: { col: 13, row: row.number - 1 }, // Position (13th column, same row)
+              ext: { width: 100, height: 100 }, // Image size
+            });
+          }
         } catch (error) {
-          console.error("Error reading image file:", error);
+          console.error("Error fetching image from S3:", error);
         }
-      } else {
-        console.error("Image file not found at path:", imagePath);
       }
     }
 
     // Write the Excel file to a buffer
     const buffer = await workbook.xlsx.writeBuffer();
-
+    console.log("Buffer created:", buffer.length); // Debugging the buffer size
+    fs.writeFileSync("test.xlsx", buffer);
     // Set the response headers and send the file
     res.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    res.send(buffer);
+    res.setHeader("Cache-Control", "no-store");
+
+    // Ensure to use res.send() for sending the buffer
+    res.send(buffer); // This will download the file to the browser
   } catch (error) {
     console.error("Error generating Excel file:", error);
     res.status(500).send("Error generating Excel file");

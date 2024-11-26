@@ -10,4 +10,17 @@ const decryptData = (encryptedData, secretKey) => {
   }
 };
 
-module.exports = decryptData;
+const encryptData = (data, secretKey) => {
+  try {
+    // Encrypt the data (image URL in this case)
+    const encryptedData = CryptoJS.AES.encrypt(
+      JSON.stringify(data),
+      secretKey
+    ).toString();
+    return encryptedData;
+  } catch (error) {
+    throw new Error("Failed to encrypt data.");
+  }
+};
+
+module.exports = { decryptData, encryptData };
