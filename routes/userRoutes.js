@@ -10,7 +10,7 @@ const router = express.Router();
 
 // AWS S3 Client Configuration
 const s3 = new S3Client({
-  region: process.env.AWS_REGION,
+  region: process.env.REACT_REGION,
   credentials: {
     accessKeyId: process.env.REACT_ACCESS_KEY_ID,
     secretAccessKey: process.env.REACT_SECRET_ACCESS_KEY,
@@ -39,7 +39,7 @@ const upload = multer({
 const uploadToS3 = async (file) => {
   const fileName = `uploads/${Date.now()}-${file.originalname}`;
   const params = {
-    Bucket: process.env.AWS_S3_BUCKET_NAME, // Your S3 bucket name
+    Bucket: process.env.REACT_S3_BUCKET_NAME, // Your S3 bucket name
     Key: fileName, // File path in the bucket
     Body: file.buffer, // File content
     ContentType: file.mimetype, // MIME type
@@ -50,7 +50,7 @@ const uploadToS3 = async (file) => {
   await s3.send(command);
 
   // Return the S3 file URL
-  return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+  return `https://${process.env.REACT_S3_BUCKET_NAME}.s3.${process.env.REACT_REGION}.amazonaws.com/${fileName}`;
 };
 
 // API Route
