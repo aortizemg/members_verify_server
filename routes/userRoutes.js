@@ -94,5 +94,8 @@ router.post("/download", (req, res) => {
     }
   });
 });
-
+router.post("/test", (req) => {
+  const { result } = req.body;
+  console.log("webhook", result);
+});
 module.exports = router;
