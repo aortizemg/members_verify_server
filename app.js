@@ -160,9 +160,13 @@ app.get("/admin/dashboard", verifyToken, (req, res) => {
 });
 
 // Example third-party API integration
-app.get("/third-party-api", verifyToken, (req, res) => {
+app.post("/api/webhook", (req, res) => {
+  const { result } = req.body;
+  console.log("result", result);
+
   res.json({
     message: "Third-party API integration will go here!",
+    result: req.body.result,
   });
 });
 
