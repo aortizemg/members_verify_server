@@ -1,6 +1,7 @@
 const User = require("../models/users"); // Adjust the path as necessary
 const nodemailer = require("nodemailer");
 const ExcelJS = require("exceljs");
+const XLSX = require("xlsx");
 const path = require("path");
 const fs = require("fs");
 const { uploadToS3 } = require("../routes/userRoutes");
@@ -169,19 +170,48 @@ const submitForm = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 0; // Default to page 0 if not provided
-    const limit = 20; // Set a default limit of 20
+    const page = parseInt(req.query.page) || 0;
+    const limit = 20;
+    const filterName = req.query.filterName || null;
     const assocCode = req.query.assocCode || null;
+    const expiringFilter = req.query.expiringFilter || null; // "expired", "expiring", or "no-term-end"
     const skip = page * limit;
 
-    // Build the query object
+    // Base query
     const query = assocCode ? { assocCode } : {};
-    const users = await User.find(query).skip(skip).limit(limit);
 
-    // Get the total number of users for pagination info
+    // Time calculations
+    const today = new Date();
+    const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+    const nextWeek = new Date();
+    const endOfNextWeek = new Date(nextWeek.setDate(nextWeek.getDate() + 7));
+    endOfNextWeek.setHours(23, 59, 59, 999);
+
+    // Apply expiringFilter logic
+    if (expiringFilter === "expired") {
+      query.termEnd = { $exists: true, $lt: startOfToday }; // Expired users
+    } else if (expiringFilter === "expiring") {
+      query.termEnd = { $exists: true, $gte: startOfToday, $lt: endOfNextWeek }; // Expiring users
+    } else if (expiringFilter === "setDate") {
+      query.termEnd = null; // No termEnd set
+    }
+
+    // Apply filterName logic
+    if (filterName) {
+      query.primaryEmail = { $regex: filterName, $options: "i" }; // Case-insensitive regex match
+    }
+
+    console.log("Query being sent:", query);
+
+    // Fetch users with pagination and sorting
+    const users = await User.find(query)
+      .sort({ association: 1 }) // Sort by association in ascending order
+      .skip(skip)
+      .limit(limit);
+
     const totalUsers = await User.countDocuments(query);
 
-    // Return the paginated users along with total count
+    // Return results
     res.json({
       totalUsers,
       totalPages: Math.ceil(totalUsers / limit),
@@ -321,6 +351,7 @@ const getStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const notSubmittedForm = await User.countDocuments({ formFilled: false });
+    const SubmittedForm = await User.countDocuments({ formFilled: true });
     const emailNotSent = await User.countDocuments({ emailSent: false });
     const currentDate = new Date();
 
@@ -347,6 +378,7 @@ const getStats = async (req, res) => {
       totalUsers,
       notSubmittedForm,
       emailNotSent,
+      SubmittedForm,
       upcomingExpirations,
       expired,
     };
@@ -360,108 +392,62 @@ const getStats = async (req, res) => {
       .json({ success: false, message: "An error occurred", error });
   }
 };
-
 const downloadExcel = async (req, res) => {
   try {
-    // Fetch users from the database
-    const users = await User.find();
+    // Fetch data from User model
+    const users = await User.find().lean(); // Use lean() for plain JavaScript objects
 
-    if (!users.length) {
-      return res.status(404).send("No users found");
-    }
-
-    // Create a new Excel workbook and worksheet
+    // Create a new workbook and a worksheet
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Users");
+    const worksheet = workbook.addWorksheet("All Members");
 
-    // Define columns for the Excel sheet
+    // Define columns for the worksheet
     worksheet.columns = [
-      { header: "Assoc Code", key: "assocCode", width: 15 },
-      { header: "Association", key: "association", width: 20 },
-      {
-        header: "Association Live Date",
-        key: "associationLiveDate",
-        width: 20,
-      },
-      { header: "Association Manager", key: "associationManager", width: 20 },
-      { header: "Board Member", key: "boardMember", width: 15 },
-      { header: "Member Role", key: "memberRole", width: 15 },
-      { header: "Member Type", key: "memberType", width: 15 },
-      { header: "DOB", key: "dob", width: 12 },
-      { header: "Term Start", key: "termStart", width: 15 },
-      { header: "Term End", key: "termEnd", width: 15 },
-      { header: "First Name", key: "firstName", width: 15 },
-      { header: "Last Name", key: "lastName", width: 15 },
-      { header: "Identification", key: "identification", width: 15 },
-      { header: "Home Address", key: "homeAddress", width: 20 },
-      { header: "ID Image", key: "idImage", width: 30 },
+      { header: "assocCode", key: "assocCode", width: 15 },
+      { header: "association", key: "association", width: 50 },
+      { header: "associationLiveDate", key: "associationLiveDate", width: 25 },
+      { header: "associationManager", key: "associationManager", width: 25 },
+      { header: "boardMember", key: "boardMember", width: 25 },
+      { header: "memberRole", key: "memberRole", width: 25 },
+      { header: "memberType", key: "memberType", width: 25 },
+      { header: "termStart", key: "termStart", width: 25 },
+      { header: "termEnd", key: "termEnd", width: 25 },
+      { header: "firstName", key: "firstName", width: 20 },
+      { header: "lastName", key: "lastName", width: 20 },
+      { header: "homeAddress", key: "homeAddress", width: 30 },
+      { header: "homeCity", key: "homeCity", width: 20 },
+      { header: "homeState", key: "homeState", width: 10 },
+      { header: "homeZip", key: "homeZip", width: 10 },
+      { header: "mailingAddress", key: "mailingAddress", width: 30 },
+      { header: "mailingCity", key: "mailingCity", width: 20 },
+      { header: "mailingState", key: "mailingState", width: 10 },
+      { header: "mailingZip", key: "mailingZip", width: 10 },
+      { header: "primaryEmail", key: "primaryEmail", width: 30 },
+      { header: "primaryPhone", key: "primaryPhone", width: 15 },
+      { header: "identification", key: "identification", width: 30 },
+      { header: "dob", key: "dob", width: 25 },
+      { header: "idImage", key: "idImage", width: 50 },
     ];
 
-    // Add rows for each user
+    // Add rows to the worksheet
     for (const user of users) {
-      const row = worksheet.addRow({
-        assocCode: user.assocCode,
-        association: user.association,
-        associationLiveDate: user.associationLiveDate
-          ? user.associationLiveDate.toISOString().split("T")[0]
-          : "",
-        associationManager: user.associationManager,
-        boardMember: user.boardMember,
-        memberRole: user.memberRole,
-        memberType: user.memberType,
-        dob: user.dob ? user.dob.toISOString().split("T")[0] : "",
-        termStart: user.termStart
-          ? user.termStart.toISOString().split("T")[0]
-          : "",
-        termEnd: user.termEnd ? user.termEnd.toISOString().split("T")[0] : "",
-        firstName: user.firstName,
-        lastName: user.lastName,
-        identification: user.identification,
-        homeAddress: user.homeAddress,
-        idImage: "", // Placeholder for image (not embedding in this case)
-      });
-
-      // If an image exists (URL from S3), fetch it and embed in the Excel
-      if (user?.idImage) {
-        try {
-          const imageBase64 = await fetchImageAsBase64(user.idImage);
-
-          if (imageBase64) {
-            // Dynamically detect image extension (png, jpg, jpeg)
-            const ext = user.idImage.split(".").pop(); // Get the file extension
-            const imageId = workbook.addImage({
-              base64: imageBase64,
-              extension: ext, // Use the correct extension
-            });
-
-            worksheet.addImage(imageId, {
-              tl: { col: 13, row: row.number - 1 }, // Position (13th column, same row)
-              ext: { width: 100, height: 100 }, // Image size
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching image from S3:", error);
-        }
-      }
+      const rowIndex = worksheet.lastRow ? worksheet.lastRow.number : 1; // Get the current row index
+      worksheet.addRow(user); // Add user data to the worksheet
     }
 
-    // Write the Excel file to a buffer
-    const buffer = await workbook.xlsx.writeBuffer();
-    console.log("Buffer created:", buffer.length); // Debugging the buffer size
-    fs.writeFileSync("test.xlsx", buffer);
-    // Set the response headers and send the file
-    res.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
+    // Set the response headers for downloading an Excel file
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Disposition", 'attachment; filename="users.xlsx"');
 
-    // Ensure to use res.send() for sending the buffer
-    res.send(buffer); // This will download the file to the browser
+    // Write to the response
+    await workbook.xlsx.write(res);
+    res.end(); // Ensure the response is ended properly
   } catch (error) {
-    console.error("Error generating Excel file:", error);
-    res.status(500).send("Error generating Excel file");
+    console.error(error);
+    res.status(500).send("Internal Server Error");
   }
 };
 
