@@ -7,6 +7,9 @@ const fs = require("fs");
 const { uploadToS3 } = require("../routes/userRoutes");
 const { decryptData } = require("./crypto");
 const https = require("https");
+
+const { v4: uuidv4 } = require("uuid"); // UUID library
+
 // Helper function to fetch image from URL and convert to base64
 const fetchImageAsBase64 = (imageUrl) => {
   return new Promise((resolve, reject) => {
@@ -109,6 +112,7 @@ const submitForm = async (req, res) => {
     // Decrypt the encrypted data
     const secretKey = process.env.CRYPTO_SECRET_KEY;
     const decryptedData = decryptData(encryptedData, secretKey); // Decrypt the data
+    console.log("decryptedData", decryptedData);
 
     // Ensure decryptedData is valid
     if (!decryptedData) {
@@ -263,7 +267,6 @@ const sendEmail = async (req, res) => {
   try {
     const { toEmail, subject, message } = req.body;
     const { id } = req.params; // Unique ID of the user
-
     // Validate the email address
     if (!toEmail) {
       return res.status(400).json({
@@ -272,8 +275,13 @@ const sendEmail = async (req, res) => {
       });
     }
 
+    const newFormToken = uuidv4();
     // Find the user by uniqueId
-    const user = await User.findOne({ uniqueId: id });
+    const user = await User.findOneAndUpdate(
+      { uniqueId: id },
+      { formToken: newFormToken },
+      { new: true }
+    );
     if (!user) {
       return res.status(404).json({
         status: false,

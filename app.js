@@ -12,8 +12,11 @@ const adminRoutes = require("./routes/adminRoutes"); // Adjust the path as neces
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next(); // Continue to the next middleware or route handler
+});
 app.use("/uploads", express.static("uploads"));
-
 app.set("trust proxy", 1);
 app.use(
   cors({
