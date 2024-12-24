@@ -21,7 +21,7 @@ const s3 = new S3Client({
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
+  // limits: { fileSize: 20 * 1024 * 1024 }, // 10 MB limit
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|pdf/;
     const isFileTypeAllowed =
