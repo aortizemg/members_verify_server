@@ -15,7 +15,7 @@ const fetchAccessToken = async () => {
     }
 
     // Encode clientId and clientSecret to Base64 ("clientId:clientSecret")
-    const credentials = Buffer.from(`${clientId}:${secret}`).toString("base64");
+    const credentials = Buffer.from(`clientId:${secret}`).toString("base64");
     console.log("credentials", credentials);
 
     const headers = {
