@@ -7,17 +7,16 @@ let tokenExpiresAt = 0; // Store expiration timestamp
 const fetchAccessToken = async () => {
   try {
     const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
     const scope = process.env.SCOPE;
 
-    if (!clientId || !clientSecret || !scope) {
+    if (!clientId || !scope) {
       throw new Error("Missing required environment variables");
     }
+    console.log("clientId", clientId, scope);
 
     // Encode clientId and clientSecret to Base64 ("clientId:clientSecret")
-    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString(
-      "base64"
-    );
+    const credentials = Buffer.from(`clientId:${clientId}`).toString("base64");
+    console.log("credentials", credentials);
 
     const headers = {
       Authorization: `Basic ${credentials}`, // Correctly formatted Auth header
@@ -56,12 +55,15 @@ const ensureValidToken = async (req, res, next) => {
     if (!accessToken || Date.now() >= tokenExpiresAt - 60000) {
       await fetchAccessToken();
     }
+    console.log("accessToken", accessToken);
 
     req.accessToken = accessToken;
     next();
   } catch (error) {
     console.error("Error ensuring valid token:", error.message);
-    return res.status(500).json({ error: "Unable to refresh access token" });
+    return res
+      .status(500)
+      .json({ error: "Unable to refresh access token", error });
   }
 };
 
