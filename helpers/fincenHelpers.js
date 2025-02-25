@@ -7,15 +7,15 @@ let tokenExpiresAt = 0; // Store expiration timestamp
 const fetchAccessToken = async () => {
   try {
     const clientId = process.env.CLIENT_ID;
+    const secret = process.env.CLIENT_SECRET;
     const scope = process.env.SCOPE;
-
+    console.log("clientId", clientId, scope, secret);
     if (!clientId || !scope) {
       throw new Error("Missing required environment variables");
     }
-    console.log("clientId", clientId, scope);
 
     // Encode clientId and clientSecret to Base64 ("clientId:clientSecret")
-    const credentials = Buffer.from(`clientId:${clientId}`).toString("base64");
+    const credentials = Buffer.from(`${clientId}:${secret}`).toString("base64");
     console.log("credentials", credentials);
 
     const headers = {

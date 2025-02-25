@@ -104,6 +104,8 @@ router.post("/download", (req, res) => {
 router.post("/get-access-token", async (req, res) => {
   try {
     const token = await fetchAccessToken();
+    console.log("token", token);
+
     res.json({ access_token: token });
   } catch (error) {
     res.status(500).json({ error: "Failed to retrieve access token" });
