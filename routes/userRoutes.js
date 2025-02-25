@@ -5,6 +5,13 @@ const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { submitForm } = require("../helpers/userHelper");
 const { encryptData } = require("../helpers/crypto");
 const fs = require("fs");
+const axios = require("axios");
+const qs = require("qs");
+const {
+  ensureValidToken,
+  fetchAccessToken,
+} = require("../helpers/fincenHelpers");
+require("dotenv").config(); // Load environment variables
 
 const router = express.Router();
 
@@ -93,6 +100,35 @@ router.post("/download", (req, res) => {
       res.status(500).send("Error downloading file");
     }
   });
+});
+router.post("/get-access-token", async (req, res) => {
+  try {
+    const token = await fetchAccessToken();
+    res.json({ access_token: token });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to retrieve access token" });
+  }
+});
+router.get("/processID", ensureValidToken, async (req, res) => {
+  try {
+    // Use the valid token stored in req.accessToken
+    const response = await axios.get(
+      "https://boiefiling-api.user-test.fincen.gov/preprod/processId",
+      {
+        headers: {
+          Authorization: `Bearer ${req.accessToken}`,
+        },
+      }
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error(
+      "Error fetching process ID:",
+      error.response?.data || error.message
+    );
+    res.status(500).json({ error: "Failed to fetch process ID" });
+  }
 });
 
 module.exports = router;
